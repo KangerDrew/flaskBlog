@@ -17,6 +17,7 @@ if USE_MOCK_DB:
 else:
     url = os.getenv("DATABASE_URL")
     conn = psycopg2.connect(url)
+    print("Using real database connection.")
 
 
 @app.route("/")
