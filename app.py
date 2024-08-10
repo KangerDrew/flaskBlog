@@ -15,7 +15,7 @@ load_dotenv()
 app = Flask(__name__)
 bcrypt = Bcrypt()
 
-USE_MOCK_DB = os.getenv("USE_MOCK_DB", 'False') == 'True'
+USE_MOCK_DB = os.getenv("USE_MOCK_DB", "False") == "True"
 
 if USE_MOCK_DB:
     # Use the mock database connection
@@ -34,31 +34,31 @@ def home():
         return "You are in my dude!"
 
     # Otherwise, re-direct them to the login page:
-    return redirect(url_for('login'))
+    return redirect(url_for("login"))
 
 
-@app.route("/login", methods=['GET', 'POST'])
+@app.route("/login", methods=["GET", "POST"])
 def login():
     cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-    if request.method == 'POST' and 'username' in request.form and 'password' in request.form:
-        username = request.form['username']
-        password = request.form['password']
+    if request.method == "POST" and "username" in request.form and "password" in request.form:
+        username = request.form["username"]
+        password = request.form["password"]
 
-        password_hashed = bcrypt.generate_password_hash(password).decode('utf-8')
+        password_hashed = bcrypt.generate_password_hash(password).decode("utf-8")
 
         # Check if the account exists in PostgreSQL:
-        cursor.execute('SELECT * FROM users WHERE username = %s AND password = %s', (username, password_hashed))
+        cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s", (username, password_hashed))
         # Fetch one record and return result
         account = cursor.fetchone()
 
         # Account exists, so re-direct to home page:
         if account:
-            session['loggedin'] = True
-            session['username'] = account['username']
+            session["loggedin"] = True
+            session["username"] = account["username"]
 
             # Redirect to home page:
-            return redirect(url_for('home'))
+            return redirect(url_for("home"))
 
         # Account not found, tell them to fk off:
         else:
@@ -66,6 +66,33 @@ def login():
 
     # Load login template here
     return "<h1>Who the fak are you</h1>"
+
+
+@app.route('/logout')
+def logout():
+    # Remove session data, this will log the user out
+    session.pop('loggedin', None)
+    session.pop('id', None)
+    session.pop('username', None)
+    # Redirect to login page
+    return redirect(url_for('login'))
+
+
+@app.route("/blogs", methods=["GET", "POST"])
+def blogs():
+    # First need to check if user is logged in
+    if session["loggedin"]:
+
+        if request.method == "POST":
+            pass
+        elif request.method == "GET":
+            pass
+        else:
+            # Need to return 404 error code
+            return "<h1>Not a valid method!!!!!</h1>"
+
+    # If user is not logged in, re-direct to login page:
+    return redirect(url_for("login"))
 
 
 if __name__ == "__main__":
