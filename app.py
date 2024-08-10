@@ -30,7 +30,8 @@ else:
 @app.route("/")
 def home():
     # First need to check if user is logged in
-    if session["loggedin"]:
+    # originally had session["loggedin"], but loggedin might not be defined!
+    if session.get("loggedin", False):
         return "You are in my dude!"
 
     # Otherwise, re-direct them to the login page:
@@ -39,6 +40,7 @@ def home():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+
     cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
     if request.method == "POST" and "username" in request.form and "password" in request.form:
@@ -78,14 +80,24 @@ def logout():
     return redirect(url_for('login'))
 
 
+# Checkout how "cursor" works: https://www.youtube.com/watch?v=eEikNXAsx20
 @app.route("/blogs", methods=["GET", "POST"])
 def blogs():
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
     # First need to check if user is logged in
     if session["loggedin"]:
 
-        if request.method == "POST":
-            pass
-        elif request.method == "GET":
+        # Fetch username
+        username = session["username"]
+
+        if request.method == "GET":
+            # Check if the account exists in PostgreSQL:
+            cursor.execute("SELECT * FROM blogs WHERE username = %s", (username))
+            user_blogs = cursor.fetchall()
+            return "<h2>{user_blogs}</h2>"
+
+        elif request.method == "POST":
             pass
         else:
             # Need to return 404 error code
@@ -94,6 +106,12 @@ def blogs():
     # If user is not logged in, re-direct to login page:
     return redirect(url_for("login"))
 
+
+# # TEMPORARY cursor testing
+# cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+# cursor.execute("SELECT * FROM users WHERE username = %s", ("kangerdrew",))
+# account = cursor.fetchall()
+# print(account)
 
 if __name__ == "__main__":
     app.run(debug=True)
