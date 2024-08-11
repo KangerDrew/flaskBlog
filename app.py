@@ -33,7 +33,7 @@ def home():
     # First need to check if user is logged in
     # originally had session["loggedin"], but loggedin might not be defined!
     if session.get("loggedin", False):
-        return "You are in my dude!"
+        return "<h1>You are in my dude!</h1>"
 
     # Otherwise, re-direct them to the login page:
     return redirect(url_for("login"))
@@ -43,9 +43,6 @@ def home():
 def login():
 
     cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-
-    print("this is request.form")
-    print(request.form)
 
     if request.method == "POST" and "username" in request.form and "password" in request.form:
         username = request.form["username"]
@@ -74,9 +71,7 @@ def login():
 @app.route('/logout')
 def logout():
     # Remove session data, this will log the user out
-    session.pop('loggedin', None)
-    session.pop('id', None)
-    session.pop('username', None)
+    session.clear()
     # Redirect to login page
     return redirect(url_for('login'))
 
