@@ -2,7 +2,7 @@ import os
 import psycopg2
 import psycopg2.extras
 from dotenv import load_dotenv
-from flask import Flask, request, session, redirect, url_for
+from flask import Flask, request, session, redirect, url_for, render_template
 from mock import mock_database_connection
 from flask_bcrypt import Bcrypt
 
@@ -33,7 +33,7 @@ def home():
     # First need to check if user is logged in
     # originally had session["loggedin"], but loggedin might not be defined!
     if session.get("loggedin", False):
-        return "<h1>You are in my dude!</h1>"
+        return render_template("home.html")
 
     # Otherwise, re-direct them to the login page:
     return redirect(url_for("login"))
@@ -65,7 +65,7 @@ def login():
             return "<h1>You're asking for teh wrong guy</h1>"
 
     # Load login template here
-    return "<h1>Who the fak are you</h1>"
+    return render_template("login.html")
 
 
 @app.route('/logout')
@@ -77,8 +77,8 @@ def logout():
 
 
 # Checkout how "cursor" works: https://www.youtube.com/watch?v=eEikNXAsx20
-@app.route("/blogs", methods=["GET", "POST"])
-def blogs():
+@app.route("/blog", methods=["GET", "POST", "PUT"])
+def blog():
     cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
     # First need to check if user is logged in
@@ -88,19 +88,33 @@ def blogs():
         username = session["username"]
 
         if request.method == "GET":
-            # Check if the account exists in PostgreSQL:
-            cursor.execute("SELECT * FROM blogs WHERE username = %s", (username))
-            user_blogs = cursor.fetchall()
-            return "<h2>{user_blogs}</h2>"
+
+            username = session["username"]
+            cursor.execute("SELECT * FROM blog WHERE username = %s", (username,))
+
+            all_blogs = cursor.fetchall()
+            return render_template("blog.html", blogs=all_blogs)
 
         elif request.method == "POST":
             pass
-        else:
-            # Need to return 404 error code
-            return "<h1>Not a valid method!!!!!</h1>"
+        elif request.method == "PUT":
+            pass
 
     # If user is not logged in, re-direct to login page:
     return redirect(url_for("login"))
+
+
+@app.route("/blogs/<int:blog_id>", methods=["DELETE"])
+def delete_blog(blog_id):
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+    if not session.get("loggedin"):
+        return redirect(url_for("login"))
+
+    username = session["username"]
+    cursor.execute("DELETE FROM blogs WHERE id = %s AND username = %s", (blog_id, username))
+    conn.commit()
+    return "", 204  # Return 204 No Content
 
 
 # # TEMPORARY cursor testing
@@ -108,6 +122,7 @@ def blogs():
 # cursor.execute("SELECT * FROM users WHERE username = %s", ("kangerdrew",))
 # account = cursor.fetchall()
 # print(account)
+
 
 if __name__ == "__main__":
     app.run(debug=True)
