@@ -13,6 +13,7 @@ from flask_bcrypt import Bcrypt
 load_dotenv()
 
 app = Flask(__name__)
+app.secret_key = os.getenv("SECRET_KEY", "your_secret_key")
 bcrypt = Bcrypt()
 
 USE_MOCK_DB = os.getenv("USE_MOCK_DB", "False") == "True"
@@ -43,27 +44,27 @@ def login():
 
     cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
+    print("this is request.form")
+    print(request.form)
+
     if request.method == "POST" and "username" in request.form and "password" in request.form:
         username = request.form["username"]
         password = request.form["password"]
 
-        password_hashed = bcrypt.generate_password_hash(password).decode("utf-8")
-
         # Check if the account exists in PostgreSQL:
-        cursor.execute("SELECT * FROM users WHERE username = %s AND password = %s", (username, password_hashed))
-        # Fetch one record and return result
+        cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
         account = cursor.fetchone()
 
-        # Account exists, so re-direct to home page:
         if account:
-            session["loggedin"] = True
-            session["username"] = account["username"]
+            # Compare the hashed password
+            if bcrypt.check_password_hash(account["password"], password):
+                session["loggedin"] = True
+                session["username"] = account["username"]
 
-            # Redirect to home page:
-            return redirect(url_for("home"))
+                # Redirect to home page:
+                return redirect(url_for("home"))
 
-        # Account not found, tell them to fk off:
-        else:
+            # Account not found, tell them to fk off:
             return "<h1>You're asking for teh wrong guy</h1>"
 
     # Load login template here
