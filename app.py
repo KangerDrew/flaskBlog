@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from flask import Flask, request, session, redirect, url_for, render_template
 from mock import mock_database_connection
 from flask_bcrypt import Bcrypt
+from datetime import datetime
 
 # Currently following tutorial from this:
 # https://tutorial101.blogspot.com/2021/04/python-flask-postgresql-login-register.html
@@ -48,7 +49,7 @@ def login():
 
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
             # Check if the account exists in PostgreSQL:
-            cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
+            cursor.execute("SELECT * FROM \"user\" WHERE username = %s", (username,))
             account = cursor.fetchone()
 
         if account:
@@ -60,8 +61,8 @@ def login():
                 # Redirect to home page:
                 return redirect(url_for("home"))
 
-            # Account not found, tell them to fk off:
-            return "<h1>You're asking for teh wrong guy</h1>"
+        # Account not found, tell them to fk off:
+        return "<h1>You're asking for teh wrong guy</h1>"
 
     # Load login template here
     return render_template("login.html")
@@ -80,7 +81,7 @@ def logout():
 def blog():
 
     # First need to check if user is logged in
-    if session["loggedin"]:
+    if session.get("loggedin", False):
 
         # Fetch username
         username = session["username"]
@@ -92,29 +93,37 @@ def blog():
                 username = session["username"]
                 cursor.execute("SELECT * FROM blog WHERE username = %s", (username,))
 
+                # TODO: Also retrieve category information pertaining to the blogs!!
+
                 all_blogs = cursor.fetchall()
+                print(all_blogs)
                 return render_template("blog.html", blogs=all_blogs)
 
             elif request.method == "POST":
                 # Create a new blog post
+                title = request.form["title"]
                 content = request.form["content"]
-                cursor.execute("INSERT INTO.................", (username,))
+                current_t = datetime.now()
+
+                cursor.execute("INSERT INTO blog (username, title, content, created_at) VALUES (%s, %s, %s, %s)",
+                               (username, title, content, current_t))
                 conn.commit()
-                return redirect(url_for("blogs"))
+                return redirect(url_for("blog"))
+
             elif request.method == "PUT":
                 # Update an existing blog post
-                blog_id = request.form["id"]
+                blog_id = request.form["blog_id"]
                 new_content = request.form["content"]
-                cursor.execute("UPDATE blogs SET content = %s WHERE id = %s AND username = %s",
+                cursor.execute("UPDATE blog SET content = %s WHERE id = %s AND username = %s",
                                (new_content, blog_id, username))
                 conn.commit()
-                return redirect(url_for("blogs"))
+                return redirect(url_for("blog"))
 
     # If user is not logged in, re-direct to login page:
     return redirect(url_for("login"))
 
 
-@app.route("/blogs/<int:blog_id>", methods=["DELETE"])
+@app.route("/blog/<int:blog_id>", methods=["DELETE"])
 def delete_blog(blog_id):
 
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
@@ -123,7 +132,7 @@ def delete_blog(blog_id):
             return redirect(url_for("login"))
 
         username = session["username"]
-        cursor.execute("DELETE FROM blogs WHERE id = %s AND username = %s", (blog_id, username))
+        cursor.execute("DELETE FROM blog WHERE id = %s AND username = %s", (blog_id, username))
         conn.commit()
         return "", 204  # Return 204 No Content
 
@@ -135,7 +144,7 @@ def delete_blog(blog_id):
 # print(type(stuff[0][0]))
 # print(stuff)
 #
-# cursor.execute("SELECT * FROM users")
+# cursor.execute("SELECT * FROM user")
 # account = cursor.fetchall()
 # print(account)
 
