@@ -39,6 +39,11 @@ def home():
     # Otherwise, re-direct them to the login page:
     return redirect(url_for("login"))
 
+#
+# @app.route("/test_put", methods=["PUT"])
+# def test_put():
+#     return redirect(url_for("home"), code=303)
+#
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -110,13 +115,21 @@ def blog():
                 return redirect(url_for("blog"))
 
             elif request.method == "PUT":
+
+                print("*****************************************************")
+                print(request.form)
+
                 # Update an existing blog post
                 blog_id = request.form["blog_id"]
+                new_title = request.form["title"]
                 new_content = request.form["content"]
-                cursor.execute("UPDATE blog SET content = %s WHERE id = %s AND username = %s",
-                               (new_content, blog_id, username))
+
+                # TODO: Implemented "edited at" feature
+
+                cursor.execute("UPDATE blog SET content = %s, title = %s WHERE blog_id = %s AND username = %s",
+                               (new_content, new_title, blog_id, username))
                 conn.commit()
-                return redirect(url_for("blog"))
+                return redirect(url_for("blog"), code=303)
 
     # If user is not logged in, re-direct to login page:
     return redirect(url_for("login"))
