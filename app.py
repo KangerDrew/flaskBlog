@@ -96,7 +96,6 @@ def blog():
                 # TODO: Also retrieve category information pertaining to the blogs!!
 
                 all_blogs = cursor.fetchall()
-                print(all_blogs)
                 return render_template("blog.html", blogs=all_blogs)
 
             elif request.method == "POST":
@@ -132,7 +131,7 @@ def delete_blog(blog_id):
             return redirect(url_for("login"))
 
         username = session["username"]
-        cursor.execute("DELETE FROM blog WHERE id = %s AND username = %s", (blog_id, username))
+        cursor.execute("DELETE FROM blog WHERE blog_id = %s AND username = %s", (blog_id, username))
         conn.commit()
         return "", 204  # Return 204 No Content
 
