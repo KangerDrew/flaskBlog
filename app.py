@@ -96,9 +96,19 @@ def blog():
             return render_template("blog.html", blogs=all_blogs)
 
         elif request.method == "POST":
-            pass
+            # Create a new blog post
+            content = request.form["content"]
+            cursor.execute("INSERT INTO.................", (username,))
+            conn.commit()
+            return redirect(url_for("blogs"))
         elif request.method == "PUT":
-            pass
+            # Update an existing blog post
+            blog_id = request.form["id"]
+            new_content = request.form["content"]
+            cursor.execute("UPDATE blogs SET content = %s WHERE id = %s AND username = %s",
+                           (new_content, blog_id, username))
+            conn.commit()
+            return redirect(url_for("blogs"))
 
     # If user is not logged in, re-direct to login page:
     return redirect(url_for("login"))
@@ -119,8 +129,9 @@ def delete_blog(blog_id):
 
 # # TEMPORARY cursor testing
 # cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-# cursor.execute("SELECT * FROM users WHERE username = %s", ("kangerdrew",))
+# cursor.execute("SELECT * FROM blog_category WHERE blog_id = %s", ("1",))
 # account = cursor.fetchall()
+# print(type(account[0][0]))
 # print(account)
 
 
