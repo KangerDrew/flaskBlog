@@ -39,11 +39,6 @@ def home():
     # Otherwise, re-direct them to the login page:
     return redirect(url_for("login"))
 
-#
-# @app.route("/test_put", methods=["PUT"])
-# def test_put():
-#     return redirect(url_for("home"), code=303)
-#
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -82,7 +77,7 @@ def logout():
 
 
 # Checkout how "cursor" works: https://www.youtube.com/watch?v=eEikNXAsx20
-@app.route("/blog", methods=["GET", "POST", "PUT"])
+@app.route("/blog", methods=["GET", "POST"])
 def blog():
 
     # First need to check if user is logged in
@@ -114,28 +109,34 @@ def blog():
                 conn.commit()
                 return redirect(url_for("blog"))
 
-            elif request.method == "PUT":
-
-                print("*****************************************************")
-                print(request.form)
-
-                # Update an existing blog post
-                blog_id = request.form["blog_id"]
-                new_title = request.form["title"]
-                new_content = request.form["content"]
-
-                # TODO: Implemented "edited at" feature
-
-                cursor.execute("UPDATE blog SET content = %s, title = %s WHERE blog_id = %s AND username = %s",
-                               (new_content, new_title, blog_id, username))
-                conn.commit()
-                return redirect(url_for("blog"), code=303)
-
     # If user is not logged in, re-direct to login page:
     return redirect(url_for("login"))
 
 
-@app.route("/blog/<int:blog_id>", methods=["DELETE"])
+@app.route("/edit_blog/<int:blog_id>", methods=["POST"])
+def edit_blog(blog_id):
+
+    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
+
+        if not session.get("loggedin"):
+            return redirect(url_for("login"))
+
+        # Fetch username
+        username = session["username"]
+
+        # Update an existing blog post
+        new_title = request.form["title"]
+        new_content = request.form["content"]
+
+        # TODO: Implemented "edited at" feature
+
+        cursor.execute("UPDATE blog SET content = %s, title = %s WHERE blog_id = %s AND username = %s",
+                       (new_content, new_title, blog_id, username))
+        conn.commit()
+        return redirect(url_for("blog"), code=303)
+
+
+@app.route("/delete_blog/<int:blog_id>", methods=["POST"])
 def delete_blog(blog_id):
 
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
@@ -146,19 +147,7 @@ def delete_blog(blog_id):
         username = session["username"]
         cursor.execute("DELETE FROM blog WHERE blog_id = %s AND username = %s", (blog_id, username))
         conn.commit()
-        return "", 204  # Return 204 No Content
-
-
-# # TEMPORARY cursor testing
-# cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-# cursor.execute("SELECT * FROM blog_category WHERE blog_id = %s", ("1",))
-# stuff = cursor.fetchall()
-# print(type(stuff[0][0]))
-# print(stuff)
-#
-# cursor.execute("SELECT * FROM user")
-# account = cursor.fetchall()
-# print(account)
+        return redirect(url_for("blog"))
 
 
 if __name__ == "__main__":
