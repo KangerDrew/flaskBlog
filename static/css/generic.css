@@ -1,0 +1,50 @@
+nav {
+    float: right;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+}
+.blog-container {
+    position: relative;
+    border: 1px solid #ddd;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+.blog-title {
+    font-size: 24px;
+    margin-bottom: 10px;
+}
+.blog-id {
+    font-size: 14px;
+    color: #555;
+}
+.blog-content {
+    margin-bottom: 15px;
+}
+.button-container {
+    margin-top: 20px;
+}
+.button {
+    padding: 10px 15px;
+    border: 1px solid #ddd;
+    background-color: #f0f0f0;
+    text-decoration: none;
+    color: #333;
+    margin-right: 10px;
+    cursor: pointer;
+}
+.button:hover {
+    background-color: #e0e0e0;
+}
+.blog-remove {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+}
+
+.edit-form {
+    display: none;
+    margin-top: 15px;
+}
