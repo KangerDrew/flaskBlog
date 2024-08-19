@@ -3,25 +3,130 @@
 <head>
     <meta charset="utf-8">
     <title>Your Blogs</title>
+    <style>
+
+        nav {
+            float: right;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .blog-container {
+            position: relative;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .blog-title {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        .blog-id {
+            font-size: 14px;
+            color: #555;
+        }
+        .blog-content {
+            margin-bottom: 15px;
+        }
+        .button-container {
+            margin-top: 20px;
+        }
+        .button {
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            background-color: #f0f0f0;
+            text-decoration: none;
+            color: #333;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+        .button:hover {
+            background-color: #e0e0e0;
+        }
+        .blog-remove {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+        }
+
+        .edit-form {
+            display: none;
+            margin-top: 15px;
+        }
+    </style>
+    <script>
+        function toggleForm(blogId) {
+            var form = document.getElementById('edit-form-' + blogId);
+            var editButton = document.getElementById('show-edit-' + blogId);
+
+            if (form.style.display === 'none' || form.style.display === '') {
+                form.style.display = 'block';
+                editButton.innerHTML = 'Cancel';
+            } else {
+                form.style.display = 'none';
+                editButton.innerHTML = 'Edit';
+            }
+        }
+    </script>
 </head>
 <body>
+    <nav>
+        <!-- Return to Home button -->
+        <form action="{{ url_for('home') }}" method="get" style="display: inline;">
+            <button type="submit" class="button">Return to Home</button>
+        </form>
+        <form action="{{ url_for('logout') }}" method="get" style="display: inline;">
+            <button type="submit" class="button">Logout</button>
+        </form>
+    </nav>
     <h1>All Blogs:</h1>
     {% if blogs %}
         {% for blog in blogs %}
-            <h2>{{ blog.title }}</h2>
-            <h3>ID: {{blog.blog_id}}</h3>
-            <p>{{ blog.content }}</p>
+            <div class="blog-container">
+                <h2 class="blog-title">{{ blog.title }}</h2>
+                <h3 class="blog-id">ID: {{blog.blog_id}}</h3>
+                <p class="blog-content">{{ blog.content }}</p>
+
+                <form action="{{ url_for('delete_blog', blog_id=blog.blog_id) }}" method="post" class="blog-remove">
+                    <button type="submit" class="button">X</button>
+                </form>
+
+                <!-- Edit button links to a page for editing the blog -->
+                <a id="show-edit-{{ blog.blog_id }}" class="button" onclick="toggleForm({{ blog.blog_id }})">Edit</a>
+                <div id="edit-form-{{ blog.blog_id }}" class="edit-form">
+                    <h3>Edit Blog:</h3>
+                    <form action="{{ url_for('edit_blog', blog_id=blog.blog_id) }}" method="post">
+                        <a>New Title:</a>
+                        <input id="title-{{ blog.blog_id }}" name="title" type="text">
+                        <br><br>
+                        <textarea id="content-{{ blog.blog_id }}" name="content" rows="4" cols="50"
+                                  placeholder="Enter new blog content here"></textarea>
+                        <br><br>
+                        <button type="submit" class="button">Update Blog</button>
+                    </form>
+                </div>
+
+
+            </div>
         {% endfor %}
     {% else %}
         <h1>You have no blogs yet.</h1>
     {% endif %}
 
-    <form action="{{ url_for('home') }}" method="get">
-        <button type="submit">Noooo take me baaack</button>
-    </form>
+    <!-- Button for creating a new blog -->
 
-    <form action="{{ url_for('logout') }}" method="get">
-        <button type="submit">Logout</button>
+    <h1>Create New Blog:</h1>
+    <form action="{{ url_for('blog') }}" method="post" style="display: inline;">
+        <a>New Blog Title:</a>
+        <input name="title" type="text">
+        <br><br>
+        <textarea name="content" rows="4" cols="50" placeholder="Enter new blog content here"></textarea>
+        <br><br>
+        <button type="submit" class="button">Create New Blog</button>
     </form>
+    <br>
+    <br>
 </body>
 </html>
