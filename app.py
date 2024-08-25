@@ -29,15 +29,20 @@ else:
     print("Using real database connection.")
 
 
+@app.route('/favicon.ico')
+def favicon():
+    return '', 204  # Return a 204 No Content response
+
+
 @app.route("/")
 def home():
     # First need to check if user is logged in
     # originally had session["loggedin"], but loggedin might not be defined!
     if session.get("loggedin", False):
-        return "<h1>Successfully Logged In!</h1>"
+        return jsonify({"message": "You are currently logged in."}), 200
 
     # Otherwise, re-direct them to the login page:
-    return "<h1>You're not that guy pal</h1>"
+    return jsonify({"message": "You are not that guy."}), 200
 
 
 @app.route("/login", methods=["POST"])
@@ -62,7 +67,6 @@ def login():
 
     # Account not found, return error
     return jsonify({"message": "Account information not found."}), 400
-
 
 
 @app.route('/logout')
@@ -129,6 +133,11 @@ def edit_blog(blog_id):
 
         cursor.execute("UPDATE blog SET content = %s, title = %s WHERE blog_id = %s AND username = %s",
                        (new_content, new_title, blog_id, username))
+
+        # Check the number of rows affected
+        if cursor.rowcount == 0:
+            return jsonify({"failure": "Blog entry not found or you don't have permission to edit it."}), 404
+
         conn.commit()
         return jsonify({"edited_blog": blog_id})
 
@@ -143,6 +152,11 @@ def delete_blog(blog_id):
 
         username = session["username"]
         cursor.execute("DELETE FROM blog WHERE blog_id = %s AND username = %s", (blog_id, username))
+
+        # Check the number of rows affected
+        if cursor.rowcount == 0:
+            return jsonify({"failure": "Blog entry not found or you don't have permission to delete it."}), 404
+
         conn.commit()
         return jsonify({"deleted_blog": blog_id})
 
