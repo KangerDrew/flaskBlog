@@ -2,7 +2,7 @@ import os
 import psycopg2
 import psycopg2.extras
 from dotenv import load_dotenv
-from flask import Flask, request, session, redirect, url_for, render_template
+from flask import Flask, request, session, jsonify
 from mock import mock_database_connection
 from flask_bcrypt import Bcrypt
 from datetime import datetime
@@ -34,38 +34,35 @@ def home():
     # First need to check if user is logged in
     # originally had session["loggedin"], but loggedin might not be defined!
     if session.get("loggedin", False):
-        return render_template("home.html")
+        return "<h1>Successfully Logged In!</h1>"
 
     # Otherwise, re-direct them to the login page:
-    return redirect(url_for("login"))
+    return "<h1>You're not that guy pal</h1>"
 
 
-@app.route("/login", methods=["GET", "POST"])
+@app.route("/login", methods=["POST"])
 def login():
 
-    if request.method == "POST" and "username" in request.form and "password" in request.form:
-        username = request.form["username"]
-        password = request.form["password"]
+    username = request.form["username"]
+    password = request.form["password"]
 
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
-            # Check if the account exists in PostgreSQL:
-            cursor.execute("SELECT * FROM \"user\" WHERE username = %s", (username,))
-            account = cursor.fetchone()
+    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
+        # Check if the account exists in PostgreSQL:
+        cursor.execute("SELECT * FROM \"user\" WHERE username = %s", (username,))
+        account = cursor.fetchone()
 
-        if account:
-            # Compare the hashed password
-            if bcrypt.check_password_hash(account["password"], password):
-                session["loggedin"] = True
-                session["username"] = account["username"]
+    if account:
+        # Compare the hashed password
+        if bcrypt.check_password_hash(account["password"], password):
+            session["loggedin"] = True
+            session["username"] = account["username"]
 
-                # Redirect to home page:
-                return redirect(url_for("home"))
+            # Send back login confirmation result:
+            return jsonify({"message": "Login successful!"}), 200
 
-        # Account not found, tell them to fk off:
-        return "<h1>You're asking for teh wrong guy</h1>"
+    # Account not found, return error
+    return jsonify({"message": "Account information not found."}), 400
 
-    # Load login template here
-    return render_template("login.html")
 
 
 @app.route('/logout')
@@ -73,7 +70,7 @@ def logout():
     # Remove session data, this will log the user out
     session.clear()
     # Redirect to login page
-    return redirect(url_for('login'))
+    return jsonify({"message": "You are now logged out."}), 200
 
 
 # Checkout how "cursor" works: https://www.youtube.com/watch?v=eEikNXAsx20
@@ -96,7 +93,7 @@ def blog():
                 # TODO: Also retrieve category information pertaining to the blogs!!
 
                 all_blogs = cursor.fetchall()
-                return render_template("blog.html", blogs=all_blogs)
+                return jsonify({"message": "Your new blogs here", "content": all_blogs}), 200
 
             elif request.method == "POST":
                 # Create a new blog post
@@ -107,19 +104,19 @@ def blog():
                 cursor.execute("INSERT INTO blog (username, title, content, created_at) VALUES (%s, %s, %s, %s)",
                                (username, title, content, current_t))
                 conn.commit()
-                return redirect(url_for("blog"))
+                return jsonify({"message": "New blog successfully created."}), 200
 
-    # If user is not logged in, re-direct to login page:
-    return redirect(url_for("login"))
+    # If user is not logged in, send back 401 code
+    return jsonify({"message": "You need to login first to access your blogs."}), 401
 
 
-@app.route("/edit_blog/<int:blog_id>", methods=["POST"])
+@app.route("/edit_blog/<int:blog_id>", methods=["PUT"])
 def edit_blog(blog_id):
 
-    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
+    if not session.get("loggedin"):
+        return jsonify({"message": "You need to login first to edit your blogs."}), 401
 
-        if not session.get("loggedin"):
-            return redirect(url_for("login"))
+    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
 
         # Fetch username
         username = session["username"]
@@ -133,21 +130,21 @@ def edit_blog(blog_id):
         cursor.execute("UPDATE blog SET content = %s, title = %s WHERE blog_id = %s AND username = %s",
                        (new_content, new_title, blog_id, username))
         conn.commit()
-        return redirect(url_for("blog"), code=303)
+        return jsonify({"edited_blog": blog_id})
 
 
-@app.route("/delete_blog/<int:blog_id>", methods=["POST"])
+@app.route("/delete_blog/<int:blog_id>", methods=["DELETE"])
 def delete_blog(blog_id):
 
-    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
+    if not session.get("loggedin"):
+        return jsonify({"message": "You need to login first to delete your blogs."}), 401
 
-        if not session.get("loggedin"):
-            return redirect(url_for("login"))
+    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
 
         username = session["username"]
         cursor.execute("DELETE FROM blog WHERE blog_id = %s AND username = %s", (blog_id, username))
         conn.commit()
-        return redirect(url_for("blog"))
+        return jsonify({"deleted_blog": blog_id})
 
 
 if __name__ == "__main__":
