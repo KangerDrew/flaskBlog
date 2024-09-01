@@ -1,9 +1,7 @@
 import os
-import psycopg2
-import psycopg2.extras
 from dotenv import load_dotenv
-from flask import Flask, request, session, jsonify
-from mock import mock_database_connection
+from connector import db_connect
+from flask import Flask, request, session
 from flask_bcrypt import Bcrypt
 from datetime import datetime
 from APIResponse import APIResponse
@@ -19,15 +17,6 @@ app.secret_key = os.getenv("SECRET_KEY", "your_secret_key")
 bcrypt = Bcrypt(app)
 
 USE_MOCK_DB = os.getenv("USE_MOCK_DB", "False") == "True"
-
-if USE_MOCK_DB:
-    # Use the mock database connection
-    conn = mock_database_connection()
-    print("Using mocked database connection.")
-else:
-    url = os.getenv("DATABASE_URL")
-    conn = psycopg2.connect(url)
-    print("Using real database connection.")
 
 
 # Singleton Code Structure Implementation:
@@ -56,10 +45,9 @@ def login():
     username = request.form["username"]
     password = request.form["password"]
 
-    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
-        # Check if the account exists in PostgreSQL:
-        cursor.execute("SELECT * FROM \"user\" WHERE username = %s", (username,))
-        account = cursor.fetchone()
+    query = "SELECT * FROM \"user\" WHERE username = %s"
+    params = (username,)
+    account = db_connect(query, params)
 
     if account:
         # Compare the hashed password
@@ -82,93 +70,116 @@ def logout():
     return response_formatter.generate_response_s("You are now logged out."), 200
 
 
-# Checkout how "cursor" works: https://www.youtube.com/watch?v=eEikNXAsx20
-@app.route("/blog", methods=["GET", "POST"])
-def blog():
+@app.route('/blog', methods=["GET"])
+def blog_get():
 
     # First need to check if user is logged in
-    if session.get("loggedin", False):
+    if not session.get("loggedin", False):
+        response_formatter.generate_response_f("You need to login first to access your blogs."), 401
 
-        # Fetch username
-        username = session["username"]
+    # Fetch username
+    username = session["username"]
 
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
+    # Query database:
+    query = "SELECT * FROM blog WHERE username = %s"
+    params = (username,)
+    all_blogs = db_connect(query, params, True)
 
-            if request.method == "GET":
+    # TODO: Also retrieve category information pertaining to the blogs!!
 
-                username = session["username"]
-                cursor.execute("SELECT * FROM blog WHERE username = %s", (username,))
-
-                # TODO: Also retrieve category information pertaining to the blogs!!
-
-                all_blogs = cursor.fetchall()
-                return response_formatter.generate_response_s("Your new blogs here", all_blogs), 200
-
-            elif request.method == "POST":
-                # Create a new blog post
-                title = request.form["title"]
-                content = request.form["content"]
-                current_t = datetime.now()
-
-                cursor.execute("INSERT INTO blog (username, title, content, created_at) VALUES (%s, %s, %s, %s)",
-                               (username, title, content, current_t))
-                conn.commit()
-
-                return response_formatter.generate_response_s("New blog successfully created."), 200
-
-    # If user is not logged in, send back 401 code
-    return response_formatter.generate_response_f("You need to login first to access your blogs."), 400
+    return response_formatter.generate_response_s("Your new blogs here", all_blogs), 200
 
 
-@app.route("/edit_blog/<int:blog_id>", methods=["PUT"])
-def edit_blog(blog_id):
+@app.route('/blog', methods=["POST"])
+def blog_post():
+
+    # First need to check if user is logged in
+    if not session.get("loggedin", False):
+        response_formatter.generate_response_f("You need to login first to create new blogs."), 401
+
+    # Fetch username
+    username = session["username"]
+
+    # Get a new blog content from request:
+    title = request.form["title"]
+    content = request.form["content"]
+    current_t = datetime.now()
+
+    # Send insert statement to database:
+    query = "INSERT INTO blog (username, title, content, created_at) VALUES (%s, %s, %s, %s)"
+    params = (username, title, content, current_t)
+    response = db_connect(query, params, mod_query=True)
+
+    print("*****************************************")
+    print(response)
+    print("*****************************************")
+
+    # If response is null, it means the query to create new blog was not executed successfully:
+    if response == 0:
+        return response_formatter.generate_response_f("New blog was not created..."), 404
+
+    return response_formatter.generate_response_s("New blog successfully created."), 200
+
+
+@app.route("/blog", methods=["PUT"])
+def blog_put():
 
     if not session.get("loggedin"):
         return response_formatter.generate_response_f("You need to login first to edit your blogs."), 401
 
-    with (conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor):
+    # Fetch username
+    username = session["username"]
 
-        # Fetch username
-        username = session["username"]
+    # Update an existing blog post
+    blog_id = request.form["blog_id"]
+    new_title = request.form["title"]
+    new_content = request.form["content"]
 
-        # Update an existing blog post
-        new_title = request.form["title"]
-        new_content = request.form["content"]
+    # TODO: Implemented "edited at" feature
 
-        # TODO: Implemented "edited at" feature
+    # Send edit query to blog:
+    query = "UPDATE blog SET content = %s, title = %s WHERE blog_id = %s AND username = %s"
+    params = (new_content, new_title, blog_id, username)
 
-        cursor.execute("UPDATE blog SET content = %s, title = %s WHERE blog_id = %s AND username = %s",
-                       (new_content, new_title, blog_id, username))
+    response = db_connect(query, params, mod_query=True)
 
-        # Check the number of rows affected
-        if cursor.rowcount == 0:
-            return response_formatter.generate_response_f("Blog entry not found or you don't have"
-                                                        " permission to edit it."
-                                                        ), 404
+    print("*****************************************")
+    print(response)
+    print("*****************************************")
 
-        conn.commit()
-        return response_formatter.generate_response_s(f"Blog ID#:{blog_id} has been successfully edited"), 200
+    # If response is null, it means the query to edit blog was not executed successfully:
+    if response == 0:
+        return response_formatter.generate_response_f("Blog entry not found or you don't"
+                                                      " have permission to edit it."), 404
+
+    return response_formatter.generate_response_s(f"Blog ID#:{blog_id} has been successfully edited"), 200
 
 
-@app.route("/delete_blog/<int:blog_id>", methods=["DELETE"])
-def delete_blog(blog_id):
+@app.route("/blog", methods=["DELETE"])
+def blog_delete():
 
     if not session.get("loggedin"):
         return response_formatter.generate_response_f("You need to login first to delete your blogs."), 401
 
-    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
+    username = session["username"]
+    blog_id = request.form["blog_id"]
 
-        username = session["username"]
-        cursor.execute("DELETE FROM blog WHERE blog_id = %s AND username = %s", (blog_id, username))
+    query = "DELETE FROM blog WHERE blog_id = %s AND username = %s"
+    params = (blog_id, username)
 
-        # Check the number of rows affected
-        if cursor.rowcount == 0:
-            return response_formatter.generate_response_f("Blog entry not found or you don't have"
-                                                          " permission to delete it."
-                                                          ), 404
+    response = db_connect(query, params, mod_query=True)
 
-        conn.commit()
-        return response_formatter.generate_response_s(f"Blog ID#:{blog_id} has been successfully deleted"), 200
+    print("*****************************************")
+    print(response)
+    print("*****************************************")
+
+    # If response is null, it means the query to delete blog was not executed successfully:
+    if response == 0:
+        return response_formatter.generate_response_f("Blog entry not found or you don't have"
+                                                      " permission to delete it."
+                                                      ), 404
+
+    return response_formatter.generate_response_s(f"Blog ID#:{blog_id} has been successfully deleted"), 200
 
 
 if __name__ == "__main__":
